@@ -1,3 +1,8 @@
+// Initialize PDF.js
+if (typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
 let currentMode = 'compress';
 let originalFile = null;
 let processedBlob = null;
@@ -146,21 +151,86 @@ function compressImageFile(file) {
 async function compressPDF(file) {
     document.getElementById('loadingText').textContent = 'Compressing PDF...';
     
-    const arrayBuffer = await file.arrayBuffer();
-    const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
-    
-    const compressedPdfBytes = await pdfDoc.save({
-        useObjectStreams: false,
-        addDefaultPage: false,
-        objectsPerTick: 50,
-    });
-    
-    processedBlob = new Blob([compressedPdfBytes], { type: 'application/pdf' });
+    try {
+        const arrayBuffer = await file.arrayBuffer();
+        
+        // Load PDF with PDF.js
+        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+        const pdf = await loadingTask.promise;
+        
+        // Create new PDF with pdf-lib
+        const pdfDoc = await PDFLib.PDFDocument.create();
+        
+        const numPages = pdf.numPages;
+        
+        for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+            const page = await pdf.getPage(pageNum);
+            const viewport = page.getViewport({ scale: 1.5 });
+            
+            // Create canvas
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            
+            // Render PDF page to canvas
+            await page.render({
+                canvasContext: context,
+                viewport: viewport
+            }).promise;
+            
+            // Convert canvas to compressed JPEG
+            const imageBlob = await new Promise((resolve) => {
+                canvas.toBlob(resolve, 'image/jpeg', 0.75);
+            });
+            
+            const imageBytes = await imageBlob.arrayBuffer();
+            const image = await pdfDoc.embedJpg(imageBytes);
+            
+            // Add page with compressed image
+            const pdfPage = pdfDoc.addPage([viewport.width, viewport.height]);
+            pdfPage.drawImage(image, {
+                x: 0,
+                y: 0,
+                width: viewport.width,
+                height: viewport.height,
+            });
+        }
+        
+        // Save compressed PDF
+        const compressedPdfBytes = await pdfDoc.save({
+            useObjectStreams: true,
+            addDefaultPage: false,
+        });
+        
+        processedBlob = new Blob([compressedPdfBytes], { type: 'application/pdf' });
+        
+        // If compressed version is larger, use original with basic optimization
+        if (processedBlob.size >= file.size) {
+            const originalPdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+            const optimizedBytes = await originalPdfDoc.save({
+                useObjectStreams: true,
+                addDefaultPage: false,
+            });
+            processedBlob = new Blob([optimizedBytes], { type: 'application/pdf' });
+        }
+        
+    } catch (error) {
+        console.error('PDF compression error:', error);
+        // Fallback: basic compression
+        const arrayBuffer = await file.arrayBuffer();
+        const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+        const compressedBytes = await pdfDoc.save({
+            useObjectStreams: true,
+            addDefaultPage: false,
+        });
+        processedBlob = new Blob([compressedBytes], { type: 'application/pdf' });
+    }
     
     const reduction = ((file.size - processedBlob.size) / file.size * 100).toFixed(1);
     
-    document.getElementById('originalPreviewContainer').innerHTML = `<div class="pdf-placeholder"><div class="pdf-icon">📄</div><div>Original PDF</div></div>`;
-    document.getElementById('processedPreviewContainer').innerHTML = `<div class="pdf-placeholder"><div class="pdf-icon">📄</div><div>Compressed PDF</div></div>`;
+    document.getElementById('originalPreviewContainer').innerHTML = `<div class="pdf-placeholder"><div class="pdf-icon">📄</div><div>Original PDF</div><div style="margin-top: 10px; font-size: 12px;">${Math.round(file.size / 1024)} KB</div></div>`;
+    document.getElementById('processedPreviewContainer').innerHTML = `<div class="pdf-placeholder"><div class="pdf-icon">📄</div><div>Compressed PDF</div><div style="margin-top: 10px; font-size: 12px;">${Math.round(processedBlob.size / 1024)} KB</div></div>`;
     
     document.getElementById('resultTitle').textContent = 'PDF Compression Complete!';
     document.getElementById('resultStats').innerHTML = `<span>${formatFileSize(file.size)}</span> → <span>${formatFileSize(processedBlob.size)}</span><span class="reduction">(${reduction}% reduction)</span>`;
@@ -171,6 +241,16 @@ async function compressPDF(file) {
     
     loadingSection.classList.add('hidden');
     resultsSection.classList.remove('hidden');
+}
+
+async function compressPDFWithImages(pdfDoc, pages) {
+    // This function is no longer needed but kept for compatibility
+    const compressedBytes = await pdfDoc.save({
+        useObjectStreams: true,
+        addDefaultPage: false,
+    });
+    
+    return new Blob([compressedBytes], { type: 'application/pdf' });
 }
 
 async function convertImageToPDF(file) {
