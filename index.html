@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal File Compressor & Converter</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="background-pattern"></div>
+    
+    <div class="container">
+        <div class="header">
+            <div class="header-icon-wrapper">
+                <div class="icon-glow"></div>
+                <div class="header-icon">🚀</div>
+            </div>
+            <h1 class="gradient-text">Universal Compressor & Converter</h1>
+            <p>Transform and optimize your files with ease</p>
+            <div class="feature-badges">
+                <span class="badge">⚡ Lightning Fast</span>
+                <span class="badge">🔒 100% Private</span>
+                <span class="badge">✨ High Quality</span>
+            </div>
+        </div>
+
+        <div class="mode-selector">
+            <button class="mode-btn active" onclick="setMode('compress')">
+                <span class="mode-icon">🗜️</span>
+                <div class="mode-content">
+                    <div class="mode-title">Compress Files</div>
+                    <div class="mode-desc">Reduce file size</div>
+                </div>
+            </button>
+            <button class="mode-btn" onclick="setMode('convert')">
+                <span class="mode-icon">📄</span>
+                <div class="mode-content">
+                    <div class="mode-title">Image to PDF</div>
+                    <div class="mode-desc">Convert images</div>
+                </div>
+            </button>
+        </div>
+
+        <div id="uploadSection" class="upload-section">
+            <label for="fileInput" class="upload-area">
+                <div class="upload-content">
+                    <div class="upload-icon-wrapper">
+                        <div class="upload-icon">📁</div>
+                        <div class="upload-icon-plus">+</div>
+                    </div>
+                    <div class="upload-text" id="uploadText">Drop your file here or click to browse</div>
+                    <div class="upload-subtext" id="uploadSubtext">Supports JPG, PNG, WebP, PDF (Max 10MB)</div>
+                    <div class="supported-formats">
+                        <span class="format-tag">JPG</span>
+                        <span class="format-tag">PNG</span>
+                        <span class="format-tag">WebP</span>
+                        <span class="format-tag">PDF</span>
+                    </div>
+                </div>
+            </label>
+            <input type="file" id="fileInput">
+        </div>
+
+        <div id="loadingSection" class="loading hidden">
+            <div class="loading-content">
+                <div class="spinner-wrapper">
+                    <div class="spinner"></div>
+                    <div class="spinner-glow"></div>
+                </div>
+                <div class="loading-text" id="loadingText">Processing your file...</div>
+                <div class="loading-subtext">This will only take a moment</div>
+            </div>
+        </div>
+
+        <div id="resultsSection" class="hidden">
+            <div class="stats-card">
+                <div class="stats-info">
+                    <div class="check-icon-wrapper">
+                        <div class="check-icon">✓</div>
+                    </div>
+                    <div class="stats-text">
+                        <h3 id="resultTitle">Processing Complete!</h3>
+                        <p id="resultStats"></p>
+                    </div>
+                </div>
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="downloadFile()">
+                        <span>⬇️</span>
+                        <span>Download</span>
+                    </button>
+                    <button class="btn btn-secondary" onclick="reset()">
+                        <span>↻</span>
+                        <span>New File</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="comparison-grid" id="comparisonGrid">
+                <div class="image-card">
+                    <div class="card-header">
+                        <h3 id="originalTitle">Original</h3>
+                        <span class="file-badge">Before</span>
+                    </div>
+                    <p class="file-size">Size: <span id="originalSizeCard"></span></p>
+                    <div class="image-preview" id="originalPreviewContainer"></div>
+                </div>
+
+                <div class="image-card processed-card">
+                    <div class="card-header">
+                        <h3 id="processedTitle">Processed</h3>
+                        <span class="file-badge success">After</span>
+                    </div>
+                    <p class="file-size">Size: <span id="processedSizeCard"></span></p>
+                    <div class="image-preview" id="processedPreviewContainer"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h3>✨ Features & Benefits</h3>
+            <div class="features-grid">
+                <div class="feature-item">
+                    <div class="feature-icon">🎯</div>
+                    <div class="feature-text">
+                        <h4>Smart Compression</h4>
+                        <p>Compress images to 500KB or less while maintaining visual quality</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">📦</div>
+                    <div class="feature-text">
+                        <h4>PDF Optimization</h4>
+                        <p>Reduce PDF file sizes without losing readability</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">🔄</div>
+                    <div class="feature-text">
+                        <h4>Format Conversion</h4>
+                        <p>Convert any image format to professional PDF documents</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">🔐</div>
+                    <div class="feature-text">
+                        <h4>Privacy First</h4>
+                        <p>All processing happens locally - your files never leave your device</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <p>Made with ❤️ for better file management</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
