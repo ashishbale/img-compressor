@@ -24,12 +24,12 @@ function setMode(mode) {
     const uploadSubtext = document.getElementById('uploadSubtext');
     
     if (mode === 'compress') {
-        uploadText.textContent = 'Click to upload file';
-        uploadSubtext.textContent = 'Supports JPG, PNG, WebP, PDF (Max 10MB)';
+        uploadText.textContent = 'Drop your file here or click to browse';
+        uploadSubtext.textContent = 'Supports JPG, PNG, WebP (Max 10MB) • PDF (Max 50MB)';
         fileInput.accept = 'image/jpeg,image/jpg,image/png,image/webp,application/pdf';
     } else {
-        uploadText.textContent = 'Click to upload image';
-        uploadSubtext.textContent = 'Supports JPG, PNG, WebP - Will convert to PDF';
+        uploadText.textContent = 'Drop your file here or click to browse';
+        uploadSubtext.textContent = 'Supports JPG, PNG, WebP - Will convert to PDF (Max 10MB)';
         fileInput.accept = 'image/jpeg,image/jpg,image/png,image/webp';
     }
     
@@ -48,8 +48,12 @@ async function handleFileSelect(e) {
     const file = e.target.files[0];
     if (!file) return;
 
-    if (file.size > 10 * 1024 * 1024) {
-        alert('File size must be less than 10MB');
+    // Increased limit for PDFs, kept at 10MB for images
+    const maxSize = file.type === 'application/pdf' ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
+    const maxSizeText = file.type === 'application/pdf' ? '50MB' : '10MB';
+
+    if (file.size > maxSize) {
+        alert(`File size must be less than ${maxSizeText}`);
         fileInput.value = '';
         return;
     }
@@ -162,10 +166,19 @@ async function compressPDF(file) {
         const pdfDoc = await PDFLib.PDFDocument.create();
         
         const numPages = pdf.numPages;
+        const targetSize = 500 * 1024; // 500KB target
+        let currentQuality = 0.6; // Start with 60% quality
+        
+        // Calculate appropriate scale based on file size
+        let scale = 1.2; // Lower resolution for better compression
+        if (file.size > 5 * 1024 * 1024) { // If larger than 5MB
+            scale = 1.0;
+            currentQuality = 0.5;
+        }
         
         for (let pageNum = 1; pageNum <= numPages; pageNum++) {
             const page = await pdf.getPage(pageNum);
-            const viewport = page.getViewport({ scale: 1.5 });
+            const viewport = page.getViewport({ scale: scale });
             
             // Create canvas
             const canvas = document.createElement('canvas');
@@ -179,9 +192,9 @@ async function compressPDF(file) {
                 viewport: viewport
             }).promise;
             
-            // Convert canvas to compressed JPEG
+            // Convert canvas to highly compressed JPEG
             const imageBlob = await new Promise((resolve) => {
-                canvas.toBlob(resolve, 'image/jpeg', 0.75);
+                canvas.toBlob(resolve, 'image/jpeg', currentQuality);
             });
             
             const imageBytes = await imageBlob.arrayBuffer();
@@ -198,14 +211,65 @@ async function compressPDF(file) {
         }
         
         // Save compressed PDF
-        const compressedPdfBytes = await pdfDoc.save({
+        let compressedPdfBytes = await pdfDoc.save({
             useObjectStreams: true,
             addDefaultPage: false,
         });
         
         processedBlob = new Blob([compressedPdfBytes], { type: 'application/pdf' });
         
-        // If compressed version is larger, use original with basic optimization
+        // If still too large, compress even more aggressively
+        if (processedBlob.size > targetSize && currentQuality > 0.3) {
+            console.log('First compression too large, trying aggressive compression...');
+            
+            const pdfDoc2 = await PDFLib.PDFDocument.create();
+            currentQuality = 0.4; // More aggressive
+            scale = 0.9; // Smaller resolution
+            
+            for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+                const page = await pdf.getPage(pageNum);
+                const viewport = page.getViewport({ scale: scale });
+                
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                
+                await page.render({
+                    canvasContext: context,
+                    viewport: viewport
+                }).promise;
+                
+                const imageBlob = await new Promise((resolve) => {
+                    canvas.toBlob(resolve, 'image/jpeg', currentQuality);
+                });
+                
+                const imageBytes = await imageBlob.arrayBuffer();
+                const image = await pdfDoc2.embedJpg(imageBytes);
+                
+                const pdfPage = pdfDoc2.addPage([viewport.width, viewport.height]);
+                pdfPage.drawImage(image, {
+                    x: 0,
+                    y: 0,
+                    width: viewport.width,
+                    height: viewport.height,
+                });
+            }
+            
+            compressedPdfBytes = await pdfDoc2.save({
+                useObjectStreams: true,
+                addDefaultPage: false,
+            });
+            
+            const newBlob = new Blob([compressedPdfBytes], { type: 'application/pdf' });
+            
+            // Use the smaller one
+            if (newBlob.size < processedBlob.size) {
+                processedBlob = newBlob;
+            }
+        }
+        
+        // If compressed version is larger than original, use original with basic optimization
         if (processedBlob.size >= file.size) {
             const originalPdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
             const optimizedBytes = await originalPdfDoc.save({
